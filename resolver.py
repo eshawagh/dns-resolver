@@ -3,7 +3,8 @@ import socket
 import struct
 import time
 
-from dns_packet import TYPES, TYPE_NAMES, build_query, parse_response
+from dns_packet import (TYPES, TYPE_NAMES, build_query, parse_response,
+                        validate_domain)
 from lru_cache import LRUCache
 
 ROOT_SERVERS = ["198.41.0.4", "199.9.14.201", "192.33.4.12", "199.7.91.13"]
@@ -40,8 +41,10 @@ class Resolver:
             s.settimeout(self.timeout)
             s.sendto(packet, (server, 53))
             while True:
-                data, _ = s.recvfrom(4096)
-                if len(data) >= 12 and struct.unpack(">H", data[:2])[0] == tid:
+                data, addr = s.recvfrom(4096)
+                # accept only: from the server we asked + matching transaction ID
+                if (addr[0] == server and len(data) >= 12
+                        and struct.unpack(">H", data[:2])[0] == tid):
                     return data
 
     def _tcp(self, server, packet):
@@ -78,6 +81,10 @@ class Resolver:
 
     def resolve(self, name, qtype="A", depth=0):
         name = name.lower().rstrip(".")
+        try:
+            validate_domain(name)
+        except ValueError as e:
+            raise ResolverError(f"invalid domain: {e}")
         qnum = TYPES[qtype]
         if depth > 8:
             raise ResolverError("too many nested lookups (CNAME / NS loop?)")

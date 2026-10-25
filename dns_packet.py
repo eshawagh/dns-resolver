@@ -1,5 +1,6 @@
 """Build DNS queries and parse DNS responses by hand (RFC 1035)."""
 import random
+import re
 import socket
 import struct
 from collections import namedtuple
@@ -9,6 +10,16 @@ TYPE_NAMES = {v: k for k, v in TYPES.items()}
 
 Record = namedtuple("Record", "name type ttl data")
 Response = namedtuple("Response", "id rcode aa tc answers authority additional")
+
+
+def validate_domain(domain):
+    """Raise ValueError if the domain name is not a valid hostname."""
+    domain = domain.strip().rstrip(".")
+    if not domain or len(domain) > 253:
+        raise ValueError("domain length must be 1-253 characters")
+    for label in domain.split("."):
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,63}", label):
+            raise ValueError(f"invalid label: {label!r}")
 
 
 def build_query(domain, qtype=1, recursion=False):

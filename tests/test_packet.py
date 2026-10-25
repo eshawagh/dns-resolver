@@ -1,6 +1,6 @@
 import os, struct, sys, unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from dns_packet import build_query, parse_name, parse_response
+from dns_packet import build_query, parse_name, parse_response, validate_domain
 
 
 class TestPacket(unittest.TestCase):
@@ -36,6 +36,16 @@ class TestPacket(unittest.TestCase):
         r = parse_response(header + question + auth + add)
         self.assertEqual(r.authority[0].data, "ns.com")
         self.assertEqual(r.additional[0].data, "1.2.3.4")
+
+    def test_validate_domain_ok(self):
+        validate_domain("www.example.com")
+        validate_domain("example.com.")
+
+    def test_validate_domain_bad(self):
+        for bad in ["", "bad domain!", "a..b", "-" * 64 + ".com", "x" * 300,
+                    "exa$mple.com", "\u00e9xample.com"]:
+            with self.assertRaises(ValueError):
+                validate_domain(bad)
 
 
 if __name__ == "__main__":
